@@ -1,6 +1,6 @@
 # SweepersHeaven Plugin
 
-> 🛟 **Need help or found a bug?** Get support at [support.doodesch.de](https://support.doodesch.de).
+> 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/sweepersheaven](https://support.doodesch.de/sweepersheaven).
 
 
 **SweepersHeaven** is a quality-of-life plugin for **Supermarket Together** designed to make product collection easier and faster! When thieves leave the store, get beaten and drop a large number of items, chasing after every single one can be exhausting. With **SweepersHeaven**, players can use their broom to collect multiple products at once, saving time and hassle.
