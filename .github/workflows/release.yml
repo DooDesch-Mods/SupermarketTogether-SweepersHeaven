@@ -99,3 +99,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+      - uses: actions/checkout@v4
+      - name: Announce the release in Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: python3 tools/announce-release.py "$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discord-announcement
+          path: discord-announcement.json

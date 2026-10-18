@@ -1,0 +1,28 @@
+name: Announce existing release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing public release tag to announce once
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Announce the release in Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python3 tools/announce-release.py "$RELEASE_TAG"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discord-announcement
+          path: discord-announcement.json
