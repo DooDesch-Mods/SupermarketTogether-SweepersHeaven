@@ -2,14 +2,26 @@
 
 ## [1.4.0] - 2026-10-18
 
-- Move broom collection, throws and product motion to host authority with client intents.
-- Share host settings and restore existing product positions for joining players.
-- Reject repeated or excessive requests and validate the requesting player, equipment and range.
-- Apply the item limit to the entire sweep and guard native recovery against duplicate refunds.
-- Replace recursive trash collection with a bounded queue and clear session state on disconnect.
-- Support the current Mini Transporter component as well as the older vehicle path.
-- Remove the stock-consuming debug spawner from the player plugin.
-- Preserve existing gameplay settings and add a configurable host cooldown and master switch.
+### Added
+
+- Synchronized broom sweeps, throws and dropped product movement in co-op. The host handles collection and refunds.
+- Shared host settings, a configurable sweep cooldown and an enable/disable setting.
+
+### Fixed
+
+- Joining players receive the current positions of dropped products.
+- Repeated pickup requests cannot collect the same product or pay its refund twice.
+- The item limit applies to the entire sweep.
+- Mini Transporter pickup supports the current game version.
+
+### Changed
+
+- Optional bulk trash pickup clears remaining trash in small batches.
+- Removed the old debug product spawner because it could consume store stock.
+
+### Compatibility
+
+- Install this version on the host and each player who wants synchronized sweeps and product movement.
 
 ## v1.3.1 - Fix error when picking up a single item in the store
 

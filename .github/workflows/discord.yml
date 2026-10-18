@@ -7,6 +7,10 @@ on:
         description: Existing public release tag to announce once
         required: true
         type: string
+      message_id:
+        description: Existing Discord message ID to edit instead of sending a new message
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +25,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           RELEASE_TAG: ${{ inputs.tag }}
-        run: python3 tools/announce-release.py "$RELEASE_TAG"
+          MESSAGE_ID: ${{ inputs.message_id }}
+        run: |
+          options=()
+          if [[ -n "$MESSAGE_ID" ]]; then options+=(--message-id "$MESSAGE_ID"); fi
+          python3 tools/announce-release.py "$RELEASE_TAG" "${options[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: discord-announcement
