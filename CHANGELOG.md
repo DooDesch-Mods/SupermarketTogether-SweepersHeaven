@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0] - 2026-10-18
+
+- Move broom collection, throws and product motion to host authority with client intents.
+- Share host settings and restore existing product positions for joining players.
+- Reject repeated or excessive requests and validate the requesting player, equipment and range.
+- Apply the item limit to the entire sweep and guard native recovery against duplicate refunds.
+- Replace recursive trash collection with a bounded queue and clear session state on disconnect.
+- Support the current Mini Transporter component as well as the older vehicle path.
+- Remove the stock-consuming debug spawner from the player plugin.
+- Preserve existing gameplay settings and add a configurable host cooldown and master switch.
+
 ## v1.3.1 - Fix error when picking up a single item in the store
 
 ## v1.3.0 - Pickup all trash at once Feature

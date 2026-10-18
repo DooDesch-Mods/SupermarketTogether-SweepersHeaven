@@ -1,32 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Import the GameLibs.props file -->
-  <Import Project="lib/GameLibs.props" />
+  <Import Project="../Workspace/build/GameLibs.props" Condition="Exists('../Workspace/build/GameLibs.props') and '$(SmtStandaloneBuild)' != 'true'" />
+  <Import Project="build/GameLibs.props" Condition="!Exists('../Workspace/build/GameLibs.props') or '$(SmtStandaloneBuild)' == 'true'" />
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>SweepersHeaven</AssemblyName>
     <Product>SweepersHeaven</Product>
-    <Version>1.3.1</Version>
+    <Version>1.4.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
-    <RestoreAdditionalProjectSources>
-      https://api.nuget.org/v3/index.json;
-      https://nuget.bepinex.dev/v3/index.json;
-      https://nuget.samboy.dev/v3/index.json
-    </RestoreAdditionalProjectSources>
     <RootNamespace>SweepersHeaven</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
-    <PackageReference Include="BepInEx.Core" Version="5.*" />
-    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
-    <PackageReference Include="UnityEngine.Modules" Version="2023.1.9" IncludeAssets="compile" />
+    <PackageReference Include="BepInEx.Analyzers" Version="1.0.8" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2"
       PrivateAssets="all" />
   </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="Build" Condition="'$(DeployOnBuild)' == 'true'">
+    <Copy
+      SourceFiles="$(OutputPath)$(AssemblyName).dll"
+      DestinationFolder="$(PluginsDirectory)\$(AssemblyName)"
+      OverwriteReadOnlyFiles="true"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

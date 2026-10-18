@@ -1,81 +1,101 @@
-name: Build and Release on Tag
+name: Build and release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version-check.outputs.version }}
+      mod: ${{ steps.metadata.outputs.mod }}
+      version: ${{ steps.metadata.outputs.version }}
+      description: ${{ steps.metadata.outputs.description }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
         with:
-          dotnet-version: "3.1.x" # or compatible with netstandard2.1
-
-      - name: Verify version in csproj matches the tag
-        id: version-check
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          CS_VERSION=$(grep -oPm1 "(?<=<Version>)[^<]+" SweepersHeaven.csproj)
-          if [ "$TAG_VERSION" != "$CS_VERSION" ]; then
-            echo "Version mismatch: Tag version is $TAG_VERSION, but csproj version is $CS_VERSION"
-            exit 1
-          fi
-          echo "::set-output name=version::$TAG_VERSION"
-
-      # Klone das private Abhängigkeits-Repository
-      - name: Clone dependencies repository
-        run: |
-          git clone https://$DEPENDENCIES_TOKEN@github.com/DooDesch/SupermarketTogetherLib.git dependencies
+          fetch-depth: 0
+      - name: Read release metadata
+        id: metadata
+        shell: bash
         env:
-          DEPENDENCIES_TOKEN: ${{ secrets.DEPENDENCIES_TOKEN }}
-
-      # Kopiere die Dependencies aus dem Root-Verzeichnis des geklonten Repositories in den lib-Ordner
-      - name: Copy dependencies to lib folder
+          BUILD_REFS_SHA: ${{ vars.SMT_BUILD_REFS_SHA }}
         run: |
-          mkdir -p lib
-          cp -R dependencies/* lib/
-
-      - name: Build the project
-        run: dotnet build --configuration Release
-
-      - name: Prepare release directory
-        run: |
-          mkdir -p release
-          cp bin/Release/netstandard2.1/SweepersHeaven.dll release/
-          cp thunderstore/* release/
-          cp README.md release/
-          cp CHANGELOG.md release/
-          cp LICENSE.md release/
-
-      - name: Create release ZIP
-        run: zip -j "SweepersHeaven_${{ steps.version-check.outputs.version }}.zip" release/*
-
-      - name: Upload Release ZIP
-        uses: actions/upload-artifact@v4
+          set -euo pipefail
+          [[ "$BUILD_REFS_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::SMT_BUILD_REFS_SHA must pin the private reference commit"; exit 1; }
+          MOD=$(python3 -c 'from pathlib import Path; print(next(Path(".").glob("*.csproj")).stem)')
+          VERSION=$(python3 -c 'import xml.etree.ElementTree as E; from pathlib import Path; print(E.parse(next(Path(".").glob("*.csproj"))).findtext(".//Version"))')
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            [[ "$GITHUB_REF_NAME" == "v$VERSION" ]] || { echo "::error::Tag and project version differ"; exit 1; }
+            git merge-base --is-ancestor HEAD origin/main || { echo "::error::Release tag must be on main"; exit 1; }
+          fi
+          echo "mod=$MOD" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python3 -c 'import json, os; m=json.load(open("thunderstore/manifest.json")); print("description="+m["description"], file=open(os.environ["GITHUB_OUTPUT"], "a"))'
+      - name: Checkout private game references
+        uses: actions/checkout@v4
         with:
-          name: SweepersHeaven
-          path: "SweepersHeaven_${{ steps.version-check.outputs.version }}.zip"
+          repository: DooDesch-Mods/SupermarketTogether-Workspace
+          ref: ${{ vars.SMT_BUILD_REFS_SHA }}
+          path: .ci/refs
+          ssh-key: ${{ secrets.WORKSPACE_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.319
+      - name: Build Release against the pinned game references
+        run: dotnet build "${{ steps.metadata.outputs.mod }}.csproj" -c Release -p:SmtStandaloneBuild=true -p:DeployOnBuild=false -p:SmtGameLibsDirectory="${{ github.workspace }}/.ci/refs/lib/game"
+      - name: Validate and package
+        run: python3 tools/release-package.py "${{ steps.metadata.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: dist/*
 
   release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download built ZIP
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: SweepersHeaven
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: "SweepersHeaven_${{ needs.build.outputs.version }}.zip"
+          name: release-package
+          path: dist
+      - name: Create GitHub release draft
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          MOD: ${{ needs.build.outputs.mod }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft --jq ".[] | select(.tagName == \"$GITHUB_REF_NAME\") | .isDraft")
+          if [[ "$EXISTING" == true ]]; then
+            gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "dist/$MOD-$VERSION.zip"
+          elif [[ -n "$EXISTING" ]]; then
+            echo "::error::This version is already public; publish a new version instead"
+            exit 1
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$MOD $VERSION" --notes-file dist/release-notes.md "dist/$MOD-$VERSION.zip"
+          fi
+      - name: Publish to Thunderstore
+        uses: GreenTF/upload-thunderstore-package@v4.3
+        with:
+          token: ${{ secrets.THUNDERSTORE_TOKEN }}
+          community: supermarket-together
+          namespace: DooDesch
+          name: ${{ needs.build.outputs.mod }}
+          version: ${{ needs.build.outputs.version }}
+          description: ${{ needs.build.outputs.description }}
+          repo: thunderstore.io
+          path: dist
+          file: ${{ needs.build.outputs.mod }}-${{ needs.build.outputs.version }}.zip
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

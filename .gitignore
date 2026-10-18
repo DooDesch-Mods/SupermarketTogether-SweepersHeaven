@@ -1,6 +1,8 @@
 # Compiled files
 bin/
 obj/
+dist/
+.ci/
 
 # Thunderstore & build-related artifacts
 thunderstore/*.zip

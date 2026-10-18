@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <SmtGameLibsDirectory Condition="'$(SmtGameLibsDirectory)' == ''">$(MSBuildThisFileDirectory)..\lib\game</SmtGameLibsDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Use the installed game's Unity and plugin APIs from one versioned snapshot. -->
+    <_SmtGameReference Include="$(SmtGameLibsDirectory)\*.dll"
+      Exclude="$(SmtGameLibsDirectory)\System*.dll;$(SmtGameLibsDirectory)\Microsoft*.dll;$(SmtGameLibsDirectory)\Mono*.dll;$(SmtGameLibsDirectory)\mscorlib.dll;$(SmtGameLibsDirectory)\netstandard.dll" />
+    <Reference Include="@(_SmtGameReference)">
+      <Private>false</Private>
+    </Reference>
+    <Publicize Include="Assembly-CSharp;Mirror;PlayMaker;Rewired_Core" Condition="'$(SmtPublicize)' == 'true'" />
+  </ItemGroup>
+  <Target Name="SmtRequireReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(SmtGameLibsDirectory)\Assembly-CSharp.dll')"
+      Code="SMTREF001" Text="Set SmtGameLibsDirectory to Supermarket Together_Data/Managed from the supported game build." />
+  </Target>
+</Project>
